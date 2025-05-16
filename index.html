@@ -4,20 +4,21 @@
   <meta charset="UTF-8">
   <title>勤怠管理システム（従業員用）</title>
   <style>
-    body { font-family: Arial, sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .logo { margin-bottom: 20px; }
-    .logo img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }
-    .container { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-    h1 { text-align: center; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; }
-    input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
-    button { padding: 10px 15px; margin-right: 10px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    body { font-family: Arial, sans-serif; font-size: 18px; background-color: #f0f0f0; margin: 0; padding: 30px; display: flex; flex-direction: column; align-items: center; }
+    .logo { margin-bottom: 30px; }
+    .logo img { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; }
+    .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
+    h1 { text-align: center; font-size: 2em; margin-bottom: 20px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    input[type="text"] { width: 100%; padding: 12px; font-size: 1em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 12px 20px; font-size: 1em; margin-right: 15px; background-color: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; }
     button:disabled { background-color: #aaa; cursor: not-allowed; }
     #backupBtn { background-color: #28a745; }
-    #clearAllBtn { background-color: #dc3545; }
     #restoreBtn { background-color: #ffa500; }
-    .record { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    #clearAllBtn { background-color: #dc3545; }
+    .record { border-bottom: 1px solid #ddd; padding: 12px 0; font-size: 1em; }
+    .button-group { display: flex; gap: 15px; }
   </style>
 </head>
 <body>
@@ -30,19 +31,19 @@
       <label for="empName">名前</label>
       <input type="text" id="empName" placeholder="氏名を入力">
     </div>
-    <div class="form-group">
+    <div class="form-group button-group">
       <button id="btnClockIn" type="button" disabled>出勤</button>
       <button id="btnClockOut" type="button" disabled>退勤</button>
     </div>
-    <div class="form-group">
-      <label for="searchEmpName">検索（名前）</label>
-      <input type="text" id="searchEmpName" placeholder="名前で絞り込み">
-    </div>
-    <div class="form-group">
+    <div class="form-group button-group">
       <button id="backupBtn" type="button">バックアップ</button>
       <button id="restoreBtn" type="button">リストア</button>
       <input type="file" id="restoreFile" style="display:none;">
       <button id="clearAllBtn" type="button">全データ削除</button>
+    </div>
+    <div class="form-group">
+      <label for="searchEmpName">検索（名前）</label>
+      <input type="text" id="searchEmpName" placeholder="名前で絞り込み">
     </div>
     <div id="empResult"></div>
   </div>
@@ -50,7 +51,6 @@
   <script>
     const STORAGE_KEY = 'timeCards';
 
-    // 出勤/退勤の記録
     function saveEmpPair(name, type) {
       let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       const today = new Date().toISOString().slice(0,10);
@@ -58,26 +58,17 @@
       if (!data[name][today]) data[name][today] = [];
       const records = data[name][today];
       const last = records.length ? records[records.length-1] : null;
-      if (last && last.checkOut === null && type === 'in') {
-        return alert('連続した出勤はできません');
-      }
-      if ((!last || last.checkOut !== null) && type === 'out') {
-        return alert('先に出勤してください');
-      }
+      if (last && last.checkOut === null && type === 'in') return alert('連続した出勤はできません');
+      if ((!last || last.checkOut !== null) && type === 'out') return alert('先に出勤してください');
       const now = new Date();
       const hh = String(now.getHours()).padStart(2,'0');
       const mm = String(now.getMinutes()).padStart(2,'0');
       const time = `${hh}:${mm}`;
-      if (type === 'in') {
-        records.push({ checkIn: time, checkOut: null });
-      } else {
-        last.checkOut = time;
-      }
+      if (type === 'in') records.push({ checkIn: time, checkOut: null }); else last.checkOut = time;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       alert('送信完了しました');
       document.getElementById('empName').value = '';
-      updateButtons('');
-      displayEmpRecords();
+      updateButtons(''); displayEmpRecords();
     }
 
     function updateButtons(name) {
@@ -98,8 +89,7 @@
         Object.keys(data[name]).sort().reverse().forEach(date => {
           data[name][date].forEach(rec => {
             if (rec.checkOut) {
-              const div = document.createElement('div');
-              div.className = 'record';
+              const div = document.createElement('div'); div.className = 'record';
               div.textContent = `${name} - ${date} ${rec.checkIn}~${rec.checkOut}`;
               container.appendChild(div);
             }
@@ -117,24 +107,15 @@
     function restoreData(file) {
       const reader = new FileReader();
       reader.onload = e => {
-        try {
-          const obj = JSON.parse(e.target.result);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-          displayEmpRecords();
-          updateButtons('');
-        } catch {
-          alert('無効なデータ形式です');
-        }
+        try { const obj = JSON.parse(e.target.result); localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); displayEmpRecords(); updateButtons(''); }
+        catch { alert('無効なデータ形式です'); }
       };
       reader.readAsText(file);
     }
 
     function clearAllData() {
-      const pwd = prompt('パスワードを入力してください:');
-      if (pwd !== '4564') return alert('パスワードが違います');
-      localStorage.removeItem(STORAGE_KEY);
-      displayEmpRecords();
-      updateButtons('');
+      const pwd = prompt('パスワードを入力してください:'); if (pwd !== '4564') return alert('パスワードが違います');
+      localStorage.removeItem(STORAGE_KEY); displayEmpRecords(); updateButtons('');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -142,11 +123,11 @@
       document.getElementById('btnClockIn').addEventListener('click', () => saveEmpPair(nameInput.value.trim(), 'in'));
       document.getElementById('btnClockOut').addEventListener('click', () => saveEmpPair(nameInput.value.trim(), 'out'));
       nameInput.addEventListener('input', () => updateButtons(nameInput.value.trim()));
-      document.getElementById('searchEmpName').addEventListener('input', displayEmpRecords);
       document.getElementById('backupBtn').addEventListener('click', backupData);
       document.getElementById('restoreBtn').addEventListener('click', () => document.getElementById('restoreFile').click());
       document.getElementById('restoreFile').addEventListener('change', e => restoreData(e.target.files[0]));
       document.getElementById('clearAllBtn').addEventListener('click', clearAllData);
+      document.getElementById('searchEmpName').addEventListener('input', displayEmpRecords);
       displayEmpRecords();
     });
   </script>
